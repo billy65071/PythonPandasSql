@@ -1,0 +1,95 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jun 21 17:22:41 2021
+
+@author: User
+"""
+
+import pandas as pd
+import yfinance as yf
+import pymysql as db
+import numpy as np
+from sqlalchemy import create_engine
+
+df=pd.read_csv("D:/000001.txt"," ")
+df=df.drop(['Unnamed: 6'],axis=1)
+df.columns = [''] * len(df.columns)
+df.columns = ['Date','Open','Close','High','Low','Vol']
+newIndx=df['Date'].to_numpy()
+df.index=newIndx
+
+#Schema & SymboName can change
+Schema="test"
+SymName="dji"
+
+
+db_settings = {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "root",
+    "password": "money",
+    "db": "Test",
+    "charset": "utf8"
+}
+#"db": "Test" db is schema
+#password must be changed
+
+
+
+
+try:
+    # 建立Connection物件
+    conn = db.connect(**db_settings)
+    
+    with conn.cursor() as cursor:
+      #資料表相關操作
+      
+      
+      try:
+          #檢查Table表是否存在
+          GetData="SELECT * FROM "+SymName+""
+          cursor.execute(GetData)
+          
+      except Exception as tablenotexist:
+          #如果不存在建立Table
+          print(tablenotexist,123)
+          sql = 'CREATE TABLE IF NOT EXISTS `'+SymName+'`( \
+          `Date` Int NOT NULL, \
+          `Open` Double NOT NULL, \
+          `High` Double NOT NULL, \
+          `Low` Double NOT NULL, \
+          `Close` Double NOT NULL, \
+          `Vol` Double NOT NULL, \
+          PRIMARY KEY (`Date`) \
+          )ENGINE=InnoDB CHARSET=utf8'
+          cursor.execute(sql)
+      
+      #engine is to pandas to_sql   
+      engine = create_engine('mysql+pymysql://root:money@localhost:3306/test')
+
+      GetData="SELECT * FROM "+SymName+""
+      cursor.execute(GetData)
+      Result = cursor.fetchone()#choose one data from sql
+      
+      if Result==None or Result==():
+          insert_sql= 'insert into '+SymName+'(Date,Open,High,Low,Close,Vol) values(%s,%s,%s,%s,%s,%s)'
+          npp=df.to_numpy()
+          npp=npp.tolist()
+          cursor.executemany(insert_sql, npp)
+          conn.commit()
+
+          
+          #pandas to_sql method
+          #df.to_sql(SymName,engine,index=False,if_exists='append',chunksize=1000,method='multi')
+
+
+      
+      
+
+      
+except Exception as ex:
+    print(ex)
+    
+finally:
+    cursor.close()
+    conn.close()
